@@ -616,9 +616,21 @@ The Terraform modules live at [`terraform/litellm/aws/`](./terraform/litellm/aws
 
 ### Verify Docker Image Signatures
 
-All LiteLLM Docker images published to GHCR are signed with [cosign](https://docs.sigstore.dev/cosign/overview/). Releases are signed with the key introduced in [commit `e82a3c6`](https://github.com/BerriAI/litellm/commit/e82a3c646908ba0a6ee0beddc4310d7a6cac4065).
+All LiteLLM Docker images published to GHCR are signed with [cosign](https://docs.sigstore.dev/cosign/overview/). Releases are signed with the key introduced in [commit `e82a3c6`](https://github.com/BerriAI/litellm/commit/e82a3c646908ba0a6ee0beddc4310d7a6cac4065). The signing key was rotated in October 2026 (PR [#48103](https://github.com/BerriAI/litellm/pull/48103)), so verification with a key checked out from before that rotation fails for current images. Pin the key to a full commit SHA as shown below, and re-check which commit introduced the current `cosign.pub` if verification starts failing after a future rotation.
 
-**Verify using the pinned commit hash (recommended):**
+**Verify with the wrapper script (recommended):**
+
+`scripts/verify_image_signature.py` resolves the tag to an immutable digest once, verifies that exact digest against the key you pass, and prints the verified digest. It requires Python 3.10+ and `cosign` on `PATH`, and exits non-zero on a missing or invalid signature, a key mismatch, an unsupported image reference, or a registry failure:
+
+```bash
+python3 scripts/verify_image_signature.py \
+  --key https://raw.githubusercontent.com/BerriAI/litellm/e82a3c646908ba0a6ee0beddc4310d7a6cac4065/cosign.pub \
+  ghcr.io/berriai/litellm:v1.106.4
+```
+
+The key must be a local file or the immutable commit-pinned URL above, so a wrong or moved key is rejected rather than silently retried. Verification covers the main `ghcr.io/berriai/litellm` image; it detects missing or invalid signatures and does not establish that signed software is benign.
+
+**Verify using the pinned commit hash (raw cosign):**
 
 A commit hash is cryptographically immutable, so this is the strongest way to ensure you are using the published signing key:
 
@@ -638,7 +650,7 @@ cosign verify \
   ghcr.io/berriai/litellm:<release-tag>
 ```
 
-Replace `<release-tag>` with the version you are deploying (e.g. `v1.83.0-stable`).
+Replace `<release-tag>` with the version you are deploying (e.g. `v1.106.4`). Current release tags have no `-stable` suffix.
 
 ---
 
